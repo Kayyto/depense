@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Carnet de dépenses de voyage</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1C2B45">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Carnet Voyage">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1C2B45;
+    --paper:#EFE7D8;
+    --card:#FAF6EE;
+    --stamp-red:#C1473E;
+    --stamp-red-dark:#9E362F;
+    --teal:#4F7A73;
+    --gold:#C89B3C;
+    --line: rgba(28,43,69,0.18);
+    --shadow: 0 6px 18px rgba(28,43,69,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% 8%, rgba(200,155,60,0.08), transparent 40%),
+      radial-gradient(circle at 85% 92%, rgba(79,122,115,0.08), transparent 45%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding:28px 16px 60px;
+    padding-top: calc(28px + env(safe-area-inset-top));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+  .wrap{ max-width:720px; margin:0 auto; }
+
+  /* SETUP OVERLAY */
+  .setup-overlay{
+    position:fixed; inset:0; background:var(--ink); color:#fff;
+    display:flex; align-items:center; justify-content:center; z-index:999;
+    padding:24px;
+  }
+  .setup-box{ max-width:520px; }
+  .setup-box h1{ font-family:'Fraunces', serif; font-size:26px; margin-bottom:14px; }
+  .setup-box p{ font-size:14.5px; line-height:1.6; opacity:0.9; margin-bottom:12px; }
+  .setup-box code{
+    background:rgba(255,255,255,0.12); padding:2px 6px; border-radius:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+  }
+  .setup-box ol{ padding-left:20px; font-size:14.5px; line-height:1.8; }
+
+  /* HEADER */
+  .header{
+    display:flex; align-items:center; gap:14px;
+    padding-bottom:14px; margin-bottom:10px;
+    border-bottom:2px solid var(--ink);
+    position:relative;
+  }
+  .plane{ font-size:28px; flex-shrink:0; transform:rotate(-8deg); }
+  .header-text{ flex:1; min-width:0; }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--stamp-red-dark); margin:0 0 2px;
+  }
+  #tripName{
+    font-family:'Fraunces', serif; font-weight:600;
+    font-size:clamp(22px, 5vw, 32px);
+    background:transparent; border:none; outline:none; color:var(--ink);
+    width:100%; padding:2px 0; border-bottom:1px dashed transparent;
+  }
+  #tripName:focus{ border-bottom:1px dashed var(--stamp-red); }
+  #tripName::placeholder{ color: rgba(28,43,69,0.4); }
+
+  /* SYNC BAR */
+  .sync-bar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    font-size:12px; color:rgba(28,43,69,0.6);
+    margin-bottom:22px; padding-bottom:2px;
+  }
+  .sync-dot{
+    width:8px; height:8px; border-radius:50%; background:var(--teal); flex-shrink:0;
+  }
+  .sync-dot.offline{ background:var(--stamp-red); }
+  .sync-code-input{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; border:1px solid var(--line); border-radius:5px;
+    padding:4px 8px; background:#fff; color:var(--ink); width:120px; outline:none;
+  }
+  .sync-code-input:focus{ border-color:var(--stamp-red); }
+
+  /* CARDS */
+  .card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:10px; box-shadow:var(--shadow); padding:20px; margin-bottom:20px;
+  }
+  .section-title{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--ink); opacity:0.55;
+    margin:0 0 14px; display:flex; align-items:center; gap:8px;
+  }
+  .section-title::after{
+    content:''; flex:1; height:1px;
+    background:repeating-linear-gradient(to right, var(--line) 0, var(--line) 4px, transparent 4px, transparent 8px);
+  }
+
+  .people-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .chip{
+    display:flex; align-items:center; gap:6px; background:#fff;
+    border:1px solid var(--line); border-radius:20px; padding:6px 8px 6px 14px;
+    font-size:14px; font-weight:500;
+  }
+  .chip button{
+    background:none; border:none; cursor:pointer; color:var(--stamp-red-dark);
+    font-size:15px; line-height:1; padding:2px 4px; border-radius:50%;
+  }
+  .chip button:hover{ background:rgba(193,71,62,0.12); }
+  .add-person{ display:flex; gap:8px; }
+  input[type=text], input[type=number]{
+    font-family:'Inter', sans-serif; border:1px solid var(--line); background:#fff;
+    border-radius:7px; padding:9px 12px; font-size:14px; color:var(--ink);
+    outline:none; width:100%; min-width:0;
+  }
+  input[type=text]:focus, input[type=number]:focus{ border-color: var(--stamp-red); }
+  .btn{
+    font-family:'Inter', sans-serif; font-weight:600; font-size:14px; border:none;
+    border-radius:7px; padding:9px 16px; cursor:pointer; background:var(--ink); color:#fff;
+    transition:transform .12s ease, background .12s ease;
+  }
+  .btn:hover{ background:var(--stamp-red-dark); }
+  .btn:active{ transform:scale(0.97); }
+  .btn-primary{ background:var(--stamp-red); }
+  .btn-primary:hover{ background:var(--stamp-red-dark); }
+
+  .form-grid{ display:grid; grid-template-columns:1fr; gap:12px; }
+  .row2{ display:grid; grid-template-columns:1fr 130px; gap:12px; }
+  .row2 > div{ min-width:0; }
+  label{
+    font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;
+    color:rgba(28,43,69,0.6); display:block; margin-bottom:5px;
+  }
+  select{
+    font-family:'Inter', sans-serif; border:1px solid var(--line); background:#fff;
+    border-radius:7px; padding:9px 12px; font-size:14px; color:var(--ink); width:100%; outline:none;
+  }
+  select:focus{ border-color:var(--stamp-red); }
+  .split-list{ display:flex; flex-wrap:wrap; gap:10px; margin-top:4px; }
+  .split-item{
+    display:flex; align-items:center; gap:6px; font-size:13px; background:#fff;
+    border:1px solid var(--line); border-radius:6px; padding:6px 10px;
+  }
+  .split-item input{ accent-color:var(--stamp-red); cursor:pointer; }
+
+  .ledger-empty, .totals-empty{
+    font-size:14px; color:rgba(28,43,69,0.5); font-style:italic; padding:8px 0;
+  }
+  .ledger-row{ display:flex; align-items:baseline; gap:10px; padding:10px 0; border-bottom:1px dotted var(--line); }
+  .ledger-row:last-child{ border-bottom:none; }
+  .ledger-date{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:rgba(28,43,69,0.45); flex-shrink:0; width:44px; }
+  .ledger-main{ flex:1; min-width:0; }
+  .ledger-desc{ font-size:14.5px; font-weight:600; }
+  .ledger-meta{ font-size:12px; color:rgba(28,43,69,0.55); margin-top:1px; }
+  .ledger-amount{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:15px; flex-shrink:0; }
+  .ledger-del{ background:none; border:none; cursor:pointer; color:rgba(28,43,69,0.35); font-size:16px; padding:0 2px; flex-shrink:0; }
+  .ledger-del:hover{ color:var(--stamp-red); }
+
+  .total-row{ display:flex; align-items:center; gap:12px; padding:9px 0; }
+  .total-name{ font-size:14px; font-weight:600; width:110px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .total-bar-track{ flex:1; height:8px; border-radius:5px; background:rgba(28,43,69,0.08); overflow:hidden; }
+  .total-bar-fill{ height:100%; border-radius:5px; background:linear-gradient(to right, var(--gold), var(--stamp-red)); }
+  .total-amount{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:14px; width:90px; text-align:right; flex-shrink:0; }
+  .totals-average{
+    display:flex; justify-content:space-between; align-items:baseline; margin-top:10px;
+    padding-top:10px; border-top:1px dotted var(--line); font-size:12.5px; color:rgba(28,43,69,0.6);
+  }
+  .totals-average b{ font-family:'IBM Plex Mono', monospace; color:var(--ink); font-size:13px; }
+
+  .stamps-wrap{ display:flex; flex-wrap:wrap; gap:18px; padding:8px 4px 4px; justify-content:center; }
+  .stamp-empty{ font-size:14px; color:rgba(28,43,69,0.5); font-style:italic; text-align:center; width:100%; padding:14px 0; }
+  .stamp{
+    width:150px; height:150px; border:3px dashed var(--stamp-red); border-radius:50%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; color:var(--stamp-red-dark); transform:rotate(-6deg); padding:10px; position:relative;
+  }
+  .stamp:nth-child(even){ transform:rotate(5deg); border-color:var(--teal); color:var(--teal); }
+  .stamp-from{ font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; }
+  .stamp-arrow{ font-size:11px; opacity:0.7; margin:1px 0; }
+  .stamp-to{ font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; }
+  .stamp-amount{ font-family:'IBM Plex Mono', monospace; font-size:20px; font-weight:600; margin-top:4px; }
+  .balanced-note{ text-align:center; font-family:'Fraunces', serif; font-style:italic; font-size:16px; color:var(--teal); padding:18px 0; }
+
+  .footer-actions{ display:flex; justify-content:center; margin-top:6px; }
+  .reset-link{ background:none; border:none; font-size:12px; color:rgba(28,43,69,0.4); cursor:pointer; text-decoration:underline; }
+  .reset-link:hover{ color:var(--stamp-red-dark); }
+
+  @media (max-width:480px){
+    .row2{ grid-template-columns:1fr; }
+    .stamp{ width:130px; height:130px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="setupOverlay" class="setup-overlay" style="display:none;">
+  <div class="setup-box">
+    <h1>⚙️ Configuration requise</h1>
+    <p>Cette appli a besoin d'une base Firebase gratuite pour synchroniser les données entre vos appareils.</p>
+    <ol>
+      <li>Créez un projet gratuit sur <code>console.firebase.google.com</code></li>
+      <li>Activez <code>Firestore Database</code> (mode test)</li>
+      <li>Copiez votre config dans <code>firebaseConfig</code> en haut du fichier <code>index.html</code></li>
+      <li>Rechargez cette page</li>
+    </ol>
+    <p>Toutes les instructions détaillées se trouvent dans <code>README.md</code>, fourni avec cette appli.</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="header">
+    <div class="plane">✈️</div>
+    <div class="header-text">
+      <p class="eyebrow">Carnet de bord — dépenses</p>
+      <input id="tripName" type="text" placeholder="Nom du voyage (ex. Road trip en Toscane)" />
+    </div>
+  </div>
+
+  <div class="sync-bar">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncStatus">Connexion…</span>
+    <span>·</span>
+    <span>Code du voyage :</span>
+    <input type="text" class="sync-code-input" id="syncCodeInput" placeholder="ex. italie2026">
+    <span style="opacity:0.7;">(même code sur tous vos appareils)</span>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Voyageurs</p>
+    <div class="people-row" id="peopleRow"></div>
+    <div class="add-person">
+      <input type="text" id="newPersonInput" placeholder="Ajouter une personne…" style="flex:1;">
+      <button class="btn" id="addPersonBtn">Ajouter</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Nouvelle dépense</p>
+    <div class="form-grid">
+      <div class="row2">
+        <div>
+          <label>Description</label>
+          <input type="text" id="descInput" placeholder="Ex. Hôtel, essence, courses…">
+        </div>
+        <div>
+          <label>Montant (€)</label>
+          <input type="number" id="amountInput" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
+      <div>
+        <label>Payé par</label>
+        <select id="paidBySelect"></select>
+      </div>
+      <div>
+        <label>Partagé entre</label>
+        <div class="split-list" id="splitList"></div>
+      </div>
+      <div>
+        <button class="btn btn-primary" id="addExpenseBtn">Ajouter la dépense</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Journal des dépenses</p>
+    <div id="ledger"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Total dépensé par personne</p>
+    <div id="personTotals"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Qui doit quoi</p>
+    <div class="stamps-wrap" id="stampsWrap"></div>
+  </div>
+
+  <div class="footer-actions">
+    <button class="reset-link" id="resetBtn">Réinitialiser tout le voyage</button>
+  </div>
+
+</div>
+
+<script type="module">
+/* ============================================================
+   CONFIGURATION FIREBASE — À REMPLIR (voir README.md)
+   Remplacez les valeurs ci-dessous par celles de VOTRE projet
+   Firebase (console.firebase.google.com → Paramètres du projet).
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCKqn9bYJapgCEhhvVmeJIAoSRx2O-ZeLA",
+  authDomain: "depense-ed86b.firebaseapp.com",
+  projectId: "depense-ed86b",
+  storageBucket: "depense-ed86b.firebasestorage.app",
+  messagingSenderId: "563033407703",
+  appId: "1:563033407703:web:7fd3d73081260d846bb092"
+};
+/* ============================================================ */
+
+const isConfigured = firebaseConfig.apiKey !== "REMPLACER_MOI";
+
+if (!isConfigured) {
+  document.getElementById('setupOverlay').style.display = 'flex';
+} else {
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+    const {
+      getFirestore, doc, setDoc, onSnapshot,
+      enableIndexedDbPersistence
+    } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    try { await enableIndexedDbPersistence(db); } catch (e) { /* multi-tab or unsupported: ignore */ }
+
+    let state = { tripName:'', people:[], expenses:[] };
+    let unsubscribe = null;
+    let currentDocRef = null;
+    let suppressNextSave = false;
+
+    const syncDot = document.getElementById('syncDot');
+    const syncStatus = document.getElementById('syncStatus');
+    const syncCodeInput = document.getElementById('syncCodeInput');
+
+    function getSyncCode(){
+      let code = localStorage.getItem('carnet-sync-code');
+      if(!code){ code = 'default'; localStorage.setItem('carnet-sync-code', code); }
+      return code;
+    }
+
+    function setSyncCode(code){
+      code = code.trim() || 'default';
+      localStorage.setItem('carnet-sync-code', code);
+      subscribeToTrip(code);
+    }
+
+    function subscribeToTrip(code){
+      if(unsubscribe) unsubscribe();
+      syncCodeInput.value = code;
+      syncStatus.textContent = 'Connexion…';
+      currentDocRef = doc(db, 'trips', code);
+      unsubscribe = onSnapshot(currentDocRef,
+        (snap) => {
+          syncDot.classList.remove('offline');
+          syncStatus.textContent = 'Synchronisé';
+          if(snap.exists()){
+            state = Object.assign({tripName:'',people:[],expenses:[]}, snap.data());
+          } else {
+            state = { tripName:'', people:[], expenses:[] };
+          }
+          renderAll();
+        },
+        (err) => {
+          syncDot.classList.add('offline');
+          syncStatus.textContent = 'Hors ligne (données locales)';
+          console.error(err);
+        }
+      );
+    }
+
+    async function saveState(){
+      if(!currentDocRef) return;
+      try {
+        await setDoc(currentDocRef, state);
+      } catch(e){
+        console.error('Erreur de synchronisation', e);
+      }
+    }
+
+    /* ---------- helpers ---------- */
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+    function fmt(n){ return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €'; }
+    function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+    function escapeAttr(str){ return String(str).replace(/"/g, '&quot;'); }
+
+    /* ---------- render ---------- */
+    function renderAll(){
+      renderTripName();
+      renderPeople();
+      renderPaidBySelect();
+      renderSplitList();
+      renderLedger();
+      renderPersonTotals();
+      renderStamps();
+    }
+
+    function renderTripName(){
+      const input = document.getElementById('tripName');
+      if(document.activeElement !== input) input.value = state.tripName || '';
+    }
+
+    function renderPeople(){
+      const row = document.getElementById('peopleRow');
+      row.innerHTML = '';
+      if(state.people.length === 0){
+        const span = document.createElement('span');
+        span.style.fontSize = '13px'; span.style.color = 'rgba(28,43,69,0.5)'; span.style.fontStyle = 'italic';
+        span.textContent = 'Ajoutez les voyageurs qui partagent les frais.';
+        row.appendChild(span); return;
+      }
+      state.people.forEach(person => {
+        const chip = document.createElement('div'); chip.className = 'chip';
+        chip.innerHTML = `<span>${escapeHtml(person)}</span>`;
+        const btn = document.createElement('button'); btn.textContent = '✕'; btn.title = 'Retirer ' + person;
+        btn.onclick = () => removePerson(person);
+        chip.appendChild(btn); row.appendChild(chip);
+      });
+    }
+
+    function renderPaidBySelect(){
+      const sel = document.getElementById('paidBySelect');
+      const prevVal = sel.value; sel.innerHTML = '';
+      if(state.people.length === 0){
+        const opt = document.createElement('option'); opt.textContent = "Ajoutez d'abord des voyageurs"; opt.value = '';
+        sel.appendChild(opt); return;
+      }
+      state.people.forEach(p => { const opt = document.createElement('option'); opt.value = p; opt.textContent = p; sel.appendChild(opt); });
+      if(state.people.includes(prevVal)) sel.value = prevVal;
+    }
+
+    function renderSplitList(){
+      const list = document.getElementById('splitList');
+      const checkedBefore = Array.from(list.querySelectorAll('input[type=checkbox]')).filter(c => c.checked).map(c => c.dataset.person);
+      list.innerHTML = '';
+      state.people.forEach(p => {
+        const item = document.createElement('label'); item.className = 'split-item';
+        const checked = checkedBefore.length ? checkedBefore.includes(p) : true;
+        item.innerHTML = `<input type="checkbox" data-person="${escapeAttr(p)}" ${checked ? 'checked' : ''}><span>${escapeHtml(p)}</span>`;
+        list.appendChild(item);
+      });
+    }
+
+    function renderLedger(){
+      const ledger = document.getElementById('ledger'); ledger.innerHTML = '';
+      if(state.expenses.length === 0){
+        const p = document.createElement('p'); p.className = 'ledger-empty'; p.textContent = "Aucune dépense enregistrée pour l'instant.";
+        ledger.appendChild(p); return;
+      }
+      const sorted = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
+      sorted.forEach(exp => {
+        const row = document.createElement('div'); row.className = 'ledger-row';
+        const d = new Date(exp.date);
+        const dateLabel = d.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
+        row.innerHTML = `
+          <div class="ledger-date">${dateLabel}</div>
+          <div class="ledger-main">
+            <div class="ledger-desc">${escapeHtml(exp.desc)}</div>
+            <div class="ledger-meta">payé par ${escapeHtml(exp.paidBy)} · partagé entre ${exp.splitAmong.length} personne${exp.splitAmong.length>1?'s':''}</div>
+          </div>
+          <div class="ledger-amount">${fmt(exp.amount)}</div>
+        `;
+        const delBtn = document.createElement('button'); delBtn.className = 'ledger-del'; delBtn.textContent = '✕'; delBtn.title = 'Supprimer';
+        delBtn.onclick = () => removeExpense(exp.id);
+        row.appendChild(delBtn); ledger.appendChild(row);
+      });
+    }
+
+    function renderPersonTotals(){
+      const container = document.getElementById('personTotals'); container.innerHTML = '';
+      if(state.people.length === 0 || state.expenses.length === 0){
+        const p = document.createElement('p'); p.className = 'totals-empty';
+        p.textContent = 'Les totaux dépensés par chacun apparaîtront ici dès qu\'il y aura des dépenses.';
+        container.appendChild(p); return;
+      }
+      const totals = {}; state.people.forEach(p => totals[p] = 0);
+      state.expenses.forEach(exp => { if(!(exp.paidBy in totals)) totals[exp.paidBy] = 0; totals[exp.paidBy] += exp.amount; });
+      const maxTotal = Math.max(...Object.values(totals), 0.01);
+      const grandTotal = Object.values(totals).reduce((a,b) => a+b, 0);
+      const sortedPeople = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
+      sortedPeople.forEach(p => {
+        const row = document.createElement('div'); row.className = 'total-row';
+        const pct = (totals[p] / maxTotal) * 100;
+        row.innerHTML = `
+          <div class="total-name">${escapeHtml(p)}</div>
+          <div class="total-bar-track"><div class="total-bar-fill" style="width:${pct}%"></div></div>
+          <div class="total-amount">${fmt(totals[p])}</div>
+        `;
+        container.appendChild(row);
+      });
+      const avgRow = document.createElement('div'); avgRow.className = 'totals-average';
+      avgRow.innerHTML = `<span>Total du séjour</span><b>${fmt(grandTotal)}</b>`;
+      container.appendChild(avgRow);
+    }
+
+    function computeBalances(){
+      const balances = {}; state.people.forEach(p => balances[p] = 0);
+      state.expenses.forEach(exp => {
+        if(!(exp.paidBy in balances)) balances[exp.paidBy] = 0;
+        balances[exp.paidBy] += exp.amount;
+        const share = exp.amount / exp.splitAmong.length;
+        exp.splitAmong.forEach(p => { if(!(p in balances)) balances[p] = 0; balances[p] -= share; });
+      });
+      return balances;
+    }
+
+    function simplifyDebts(balances){
+      const creditors = [], debtors = [];
+      Object.entries(balances).forEach(([p, bal]) => {
+        const rounded = Math.round(bal * 100) / 100;
+        if(rounded > 0.005) creditors.push({p, amt: rounded});
+        else if(rounded < -0.005) debtors.push({p, amt: -rounded});
+      });
+      creditors.sort((a,b) => b.amt - a.amt); debtors.sort((a,b) => b.amt - a.amt);
+      const transactions = []; let i=0, j=0;
+      while(i < debtors.length && j < creditors.length){
+        const pay = Math.min(debtors[i].amt, creditors[j].amt);
+        transactions.push({from: debtors[i].p, to: creditors[j].p, amount: pay});
+        debtors[i].amt -= pay; creditors[j].amt -= pay;
+        if(debtors[i].amt < 0.005) i++;
+        if(creditors[j].amt < 0.005) j++;
+      }
+      return transactions;
+    }
+
+    function renderStamps(){
+      const wrap = document.getElementById('stampsWrap'); wrap.innerHTML = '';
+      if(state.people.length === 0 || state.expenses.length === 0){
+        const p = document.createElement('p'); p.className = 'stamp-empty';
+        p.textContent = "Les soldes apparaîtront ici dès qu'il y aura des voyageurs et des dépenses.";
+        wrap.appendChild(p); return;
+      }
+      const balances = computeBalances();
+      const transactions = simplifyDebts(balances);
+      if(transactions.length === 0){
+        const p = document.createElement('p'); p.className = 'balanced-note';
+        p.textContent = '✓ Comptes équilibrés — personne ne doit rien à personne.';
+        wrap.appendChild(p); return;
+      }
+      transactions.forEach(t => {
+        const stamp = document.createElement('div'); stamp.className = 'stamp';
+        stamp.innerHTML = `
+          <div class="stamp-from">${escapeHtml(t.from)}</div>
+          <div class="stamp-arrow">doit à ↓</div>
+          <div class="stamp-to">${escapeHtml(t.to)}</div>
+          <div class="stamp-amount">${fmt(t.amount)}</div>
+        `;
+        wrap.appendChild(stamp);
+      });
+    }
+
+    /* ---------- actions ---------- */
+    document.getElementById('tripName').addEventListener('change', (e) => { state.tripName = e.target.value; saveState(); });
+
+    document.getElementById('addPersonBtn').addEventListener('click', addPerson);
+    document.getElementById('newPersonInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') addPerson(); });
+
+    function addPerson(){
+      const input = document.getElementById('newPersonInput');
+      const name = input.value.trim();
+      if(!name) return;
+      if(state.people.includes(name)){ input.value = ''; return; }
+      state.people.push(name); input.value = '';
+      renderPeople(); renderPaidBySelect(); renderSplitList(); saveState();
+    }
+
+    function removePerson(name){
+      state.people = state.people.filter(p => p !== name);
+      state.expenses = state.expenses.filter(exp => exp.paidBy !== name).map(exp => {
+        exp.splitAmong = exp.splitAmong.filter(p => p !== name); return exp;
+      }).filter(exp => exp.splitAmong.length > 0);
+      renderAll(); saveState();
+    }
+
+    document.getElementById('addExpenseBtn').addEventListener('click', addExpense);
+
+    function addExpense(){
+      const descInput = document.getElementById('descInput');
+      const amountInput = document.getElementById('amountInput');
+      const paidBySelect = document.getElementById('paidBySelect');
+      const desc = descInput.value.trim();
+      const amount = parseFloat(amountInput.value);
+      const paidBy = paidBySelect.value;
+      const splitAmong = Array.from(document.querySelectorAll('#splitList input[type=checkbox]:checked')).map(c => c.dataset.person);
+
+      if(!desc){ descInput.focus(); return; }
+      if(!amount || amount <= 0){ amountInput.focus(); return; }
+      if(!paidBy){ return; }
+      if(splitAmong.length === 0){ return; }
+
+      state.expenses.push({ id: uid(), desc, amount, paidBy, splitAmong, date: new Date().toISOString() });
+      descInput.value = ''; amountInput.value = '';
+      renderLedger(); renderPersonTotals(); renderStamps(); saveState();
+    }
+
+    function removeExpense(id){
+      state.expenses = state.expenses.filter(e => e.id !== id);
+      renderLedger(); renderPersonTotals(); renderStamps(); saveState();
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if(confirm('Réinitialiser tout le voyage ? Cette action supprimera tous les voyageurs et toutes les dépenses.')){
+        state = { tripName:'', people:[], expenses:[] };
+        renderAll(); saveState();
+      }
+    });
+
+    let syncCodeDebounce = null;
+    syncCodeInput.addEventListener('change', (e) => setSyncCode(e.target.value));
+
+    /* ---------- start ---------- */
+    subscribeToTrip(getSyncCode());
+  });
+}
+
+/* Service worker registration (offline support) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

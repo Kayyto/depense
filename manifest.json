@@ -1,0 +1,16 @@
+{
+  "name": "Carnet de dépenses de voyage",
+  "short_name": "Carnet Voyage",
+  "description": "Suivi des dépenses partagées pendant un voyage, synchronisé entre tous vos appareils.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EFE7D8",
+  "theme_color": "#1C2B45",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
