@@ -1,0 +1,18 @@
+name = "depense"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "depense-db"
+database_id = "c2d64650-bf1c-4b56-ba73-7073d18943ca"
+
+# Connexion : vérification de la session auprès du service de comptes central
+# (liaison interne Worker -> Worker, sans repasser par Internet).
+[[services]]
+binding = "COMPTE"
+service = "kayto-compte"
