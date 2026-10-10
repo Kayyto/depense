@@ -207,6 +207,7 @@
     .row2{ grid-template-columns:1fr; }
     .stamp{ width:130px; height:130px; }
   }
+.amount-row{display:flex;gap:8px}.amount-row input{flex:1;min-width:0}.amount-row select{width:76px;flex:none}.rate-hint{font-size:12px;color:rgba(28,43,69,0.6);margin-top:6px}.btn-link{background:none;border:none;cursor:pointer;font-size:15px;color:var(--teal);padding:0 4px;font-weight:700}.ledger-orig{display:block;font-size:11px;font-weight:500;color:rgba(28,43,69,0.55);text-align:right;margin-top:2px}
 </style>
 </head>
 <body>
@@ -248,8 +249,9 @@
           <input type="text" id="descInput" placeholder="Ex. Hôtel, essence, courses…">
         </div>
         <div>
-          <label>Montant (€)</label>
-          <input type="number" id="amountInput" placeholder="0.00" min="0" step="0.01">
+          <label>Montant</label>
+<div class="amount-row"><input type="number" id="amountInput" placeholder="0.00" min="0" step="0.01"><select id="curSelect" aria-label="Devise"><option value="EUR">€</option><option value="JPY">¥</option></select></div>
+<div class="rate-hint" id="rateHint"></div>
         </div>
       </div>
       <div>
@@ -390,6 +392,26 @@
     /* ---------- helpers ---------- */
     function uid(){ return Math.random().toString(36).slice(2,9); }
     function fmt(n){ return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €'; }
+let RATE = 0, RATE_DATE = '';
+try { const c = JSON.parse(localStorage.getItem('carnet-rate')); if (c && c.rate > 0) { RATE = c.rate; RATE_DATE = c.date || ''; } } catch (e) {}
+function fmtJpy(n){ return Math.round(n).toLocaleString('fr-FR') + ' ¥'; }
+function fmtRate(r){ return r.toLocaleString('fr-FR', {maximumFractionDigits: 2}); }
+function setRateHint(msg){ document.getElementById('rateHint').innerHTML = msg; }
+function updateRateHint(){
+  const cur = document.getElementById('curSelect').value;
+  const v = parseFloat(document.getElementById('amountInput').value);
+  let txt = RATE > 0 ? '1 € = ' + fmtRate(RATE) + ' ¥' + (RATE_DATE ? ' (' + RATE_DATE + ')' : '') : 'Taux du jour non chargé';
+  if (cur === 'JPY' && v > 0 && RATE > 0) txt = '≈ ' + fmt(v / RATE) + ' · ' + txt;
+  setRateHint(txt + ' <button type="button" class="btn-link" id="rateRefresh" title="Mettre à jour le taux">↻</button>');
+  const b = document.getElementById('rateRefresh'); if (b) b.onclick = () => loadRate(true);
+}
+async function loadRate(fresh){
+  try {
+    const d = await api('GET', '/api/rate' + (fresh ? '?fresh=1' : ''));
+    if (d && d.rate > 0) { RATE = d.rate; RATE_DATE = d.date || ''; try { localStorage.setItem('carnet-rate', JSON.stringify({rate: RATE, date: RATE_DATE})); } catch (e) {} }
+  } catch (e) { if (e.message === 'auth') return; }
+  updateRateHint();
+}
     function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
     function escapeAttr(str){ return String(str).replace(/"/g, '&quot;'); }
 
@@ -467,7 +489,7 @@
             <div class="ledger-desc">${escapeHtml(exp.desc)}</div>
             <div class="ledger-meta">payé par ${escapeHtml(exp.paidBy)} · partagé entre ${exp.splitAmong.length} personne${exp.splitAmong.length>1?'s':''}</div>
           </div>
-          <div class="ledger-amount">${fmt(exp.amount)}</div>
+          <div class="ledger-amount">${fmt(exp.amount)}${exp.cur === 'JPY' ? `<span class="ledger-orig">${fmtJpy(exp.orig)} · 1 € = ${fmtRate(exp.rate)} ¥</span>` : ''}</div>
         `;
         const delBtn = document.createElement('button'); delBtn.className = 'ledger-del'; delBtn.textContent = '✕'; delBtn.title = 'Supprimer';
         delBtn.onclick = () => removeExpense(exp.id);
@@ -588,7 +610,10 @@
       const amountInput = document.getElementById('amountInput');
       const paidBySelect = document.getElementById('paidBySelect');
       const desc = descInput.value.trim();
-      const amount = parseFloat(amountInput.value);
+      const rawAmount = parseFloat(amountInput.value);
+const cur = document.getElementById('curSelect').value;
+if (cur === 'JPY' && !(RATE > 0)) { setRateHint('Taux indisponible : réessaie avec ↻'); return; }
+const amount = cur === 'JPY' ? Math.round(rawAmount / RATE * 100) / 100 : rawAmount;
       const paidBy = paidBySelect.value;
       const splitAmong = Array.from(document.querySelectorAll('#splitList input[type=checkbox]:checked')).map(c => c.dataset.person);
 
@@ -597,8 +622,8 @@
       if(!paidBy){ return; }
       if(splitAmong.length === 0){ return; }
 
-      state.expenses.push({ id: uid(), desc, amount, paidBy, splitAmong, date: new Date().toISOString() });
-      descInput.value = ''; amountInput.value = '';
+      state.expenses.push(Object.assign({ id: uid(), desc, amount, paidBy, splitAmong, date: new Date().toISOString() }, cur === 'JPY' ? { cur: 'JPY', orig: rawAmount, rate: RATE } : {}));
+      descInput.value = ''; amountInput.value = ''; updateRateHint();
       renderLedger(); renderPersonTotals(); renderStamps(); saveState();
     }
 
@@ -618,6 +643,9 @@
     syncCodeInput.addEventListener('change', (e) => setSyncCode(e.target.value));
 
     /* ---------- start ---------- */
+document.getElementById('curSelect').addEventListener('change', updateRateHint);
+document.getElementById('amountInput').addEventListener('input', updateRateHint);
+updateRateHint(); loadRate(false);
 subscribeToTrip(getSyncCode());
 })();
 
