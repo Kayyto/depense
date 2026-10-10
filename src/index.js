@@ -96,6 +96,31 @@ function etatVide() {
   return { tripName: '', people: [], expenses: [] };
 }
 
+async function handleRate(request) {
+  const url = new URL(request.url);
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const key = new Request('https://rate.internal/eur-jpy');
+  if (cache && url.searchParams.get('fresh') !== '1') {
+    const hit = await cache.match(key);
+    if (hit) return json(await hit.json());
+  }
+  const sources = [
+    async () => { const j = await (await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=JPY')).json(); return { rate: j.rates.JPY, date: j.date }; },
+    async () => { const j = await (await fetch('https://open.er-api.com/v6/latest/EUR')).json(); return { rate: j.rates.JPY, date: String(j.time_last_update_utc || '').slice(5, 16) }; },
+  ];
+  for (const src of sources) {
+    try {
+      const o = await src();
+      if (o && o.rate > 0) {
+        const out = { rate: o.rate, date: o.date, from: 'EUR', to: 'JPY' };
+        if (cache) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'Cache-Control': 'max-age=3600', 'Content-Type': 'application/json' } }));
+        return json(out);
+      }
+    } catch (e) { /* source suivante */ }
+  }
+  return json({ error: 'Taux indisponible' }, 502);
+}
+
 async function handleMe(request, env, account) {
   const row = await env.DB.prepare('SELECT last_code FROM prefs WHERE account_id = ?').bind(account.id).first();
   return json({ account: { name: account.name, email: account.email }, lastCode: row ? row.last_code : null });
@@ -161,6 +186,7 @@ export default {
       const account = await getCentralAccount(request, env);
       if (!account) return json({ error: 'Non connecté' }, 401);
 
+      if (path === '/api/rate' && request.method === 'GET') return handleRate(request);
       if (path === '/api/me' && request.method === 'GET') return handleMe(request, env, account);
       if (path === '/api/me/code' && request.method === 'PUT') return handleMeCode(request, env, account);
       const m = path.match(/^\/api\/trips\/(.+)$/);
