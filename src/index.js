@@ -174,10 +174,37 @@ async function handleTrip(request, env, account, rawCode) {
   return json({ error: 'Méthode non autorisée' }, 405);
 }
 
+// ---- Mode maintenance : interrupteur dans le panel (panel.kayto.org), lu auprès du service de comptes ----
+// Si le service de comptes ne répond pas, l'app reste ouverte (jamais de blocage par erreur).
+const MAINT_CACHE_MS = 15000;
+let maintCache = { at: 0, on: false };
+
+async function enMaintenance(env) {
+  if (Date.now() - maintCache.at < MAINT_CACHE_MS) return maintCache.on;
+  let on = false;
+  try {
+    const u = `${(env && env.COMPTE_URL) || COMPTE_URL}/api/maintenance?app=${APP_SLUG}`;
+    const res = env && env.COMPTE && typeof env.COMPTE.fetch === 'function' ? await env.COMPTE.fetch(new Request(u)) : await fetch(u);
+    if (res.ok) on = (await res.json()).maintenance === true;
+  } catch (e) { /* injoignable : l'app reste ouverte */ }
+  maintCache = { at: Date.now(), on };
+  return on;
+}
+
+const PAGE_MAINTENANCE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="60"><title>En maintenance</title><style>html,body{height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#0f1218;color:#e8ecf3;text-align:center;padding:24px;box-sizing:border-box}main{max-width:420px}h1{font-size:24px;margin:0 0 10px}p{margin:0;color:#9aa4b5;line-height:1.5}@media(prefers-color-scheme:light){body{background:#f4f6fa;color:#161b24}p{color:#566074}}</style></head><body><main><h1>En maintenance</h1><p>Cette app est momentanément indisponible. Elle reviendra dans quelques instants.</p></main></body></html>';
+
+function reponseMaintenance(path) {
+  const headers = { 'Cache-Control': 'no-store', 'Retry-After': '300', 'X-Maintenance': '1' };
+  if (path.startsWith('/api/')) return new Response(JSON.stringify({ error: 'Maintenance en cours', maintenance: true }), { status: 503, headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8' } });
+  return new Response(PAGE_MAINTENANCE, { status: 503, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    if (await enMaintenance(env)) return reponseMaintenance(path);
 
     if (!path.startsWith('/api/')) return env.ASSETS.fetch(request);
 
